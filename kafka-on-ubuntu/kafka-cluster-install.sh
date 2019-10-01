@@ -185,6 +185,9 @@ install_java()
     apt-get -y update
     apt-get -y install openjdk-8-jdk
     java -version
+    if [ $? != 0 ]; then 
+      echo "error: Java is NOT installed." >&2
+    fi
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     echo "export JAVA_HOME=${JAVA_HOME}" >> /etc/profile
 }
@@ -192,7 +195,7 @@ install_java()
 # Expand a list of successive IP range defined by a starting address prefix (e.g. 10.0.0.1) and the number of machines in the range
 # 10.0.0.1-3 would be converted to "10.0.0.10 10.0.0.11 10.0.0.12"
 
-zookeeper="apache-zookeeper-${ZOOKEEPER_VERSION}"
+zookeeper="apache-zookeeper-${ZOOKEEPER_VERSION}-bin"
 zookeeper_config="${zookeeper}/conf/zoo.cfg"
 
 expand_ip_range_for_server_properties() {
