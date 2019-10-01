@@ -171,6 +171,7 @@ if [ -z "$INSTANCE_COUNT" ]; then
 fi
 
 # Install Java
+install_java_failed=false
 install_java()
 {
     log "Installing Java"
@@ -182,14 +183,17 @@ install_java()
     # Oracle Java downloads now require logging in to an Oracle account to download Java updates, like the latest Oracle Java 8u211 / Java SE 8u212. Because of this I cannot update the PPA with the latest Java (and the old links were broken by Oracle).
     # For this reason, THIS PPA IS DISCONTINUED (unless I find some way around this limitation).
     # Oracle Java (JDK) Installer (automatically downloads and installs Oracle JDK8). There are no actual Java files in this PPA.
-    apt-get -y update
-    apt-get -y install openjdk-8-jdk
-    java -version
-    if [ $? != 0 ]; then 
-      echo "error: Java is NOT installed." >&2
-    fi
+    apt -y update
+    apt -y install openjdk-8-jdk
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     echo "export JAVA_HOME=${JAVA_HOME}" >> /etc/profile
+    java -version
+    if [ $? != 0 ]; then 
+      echo "error: Java is NOT installed."
+      echo "Install Java manually and then run service daemon: sudo apt -y update; sudo apt -y install openjdk-8-jdk" >&2
+      # Do not exit now to continue with installation, Java can be installed later.
+      install_java_failed=true
+    fi
 }
 
 # Expand a list of successive IP range defined by a starting address prefix (e.g. 10.0.0.1) and the number of machines in the range
@@ -303,8 +307,7 @@ install_kafka()
 #------------------------
 install_java
 
-if [ "$INSTALL_ZOOKEEPER" == true ];
-then
+if [ "$INSTALL_ZOOKEEPER" == true ]; then
 	#
 	#Install zookeeper
 	#-----------------------
@@ -316,3 +319,6 @@ else
 	install_kafka
 fi
 
+if [ "$install_java_failed" == true]; then
+  exit 10
+fi
