@@ -306,7 +306,7 @@ install_kafka()
 	sed -E -i "s/(broker.id)=(.*)/\1=${BROKER_ID}/g" config/server.properties 
 	sed -E -i "s/(zookeeper.connect)=(.*)/\1=$(join_params , $(expand_ip_range "${ZOOKEEPER_IP_PREFIX}-${INSTANCE_COUNT}"))/g" config/server.properties
   if [ ! -z "$KAFKA_LISTENER" ]; then
-    sed -E -i "s/^#?(listeners)=(.*)(:[0-9]+)/\1=MAIN:\/\/${KAFKA_LISTENER}\3/g" config/server.properties
+    sed -E -i "s/^#?(listeners)=(.*)(:[0-9]+)/\1=PLAINTEXT:\/\/${KAFKA_LISTENER}\3/g" config/server.properties
   fi
 
 	chmod u+x $kafka_path/bin/kafka-server-start.sh
