@@ -190,15 +190,22 @@ install_java()
     # Oracle Java downloads now require logging in to an Oracle account to download Java updates, like the latest Oracle Java 8u211 / Java SE 8u212. Because of this I cannot update the PPA with the latest Java (and the old links were broken by Oracle).
     # For this reason, THIS PPA IS DISCONTINUED (unless I find some way around this limitation).
     # Oracle Java (JDK) Installer (automatically downloads and installs Oracle JDK8). There are no actual Java files in this PPA.
-    apt -y update
+    apt -y update    
+    if [ $? != 0 ]; then 
+      >&2 echo "error: Unable to update packages."
+      # Do not exit now to continue with installation, Java can be installed later.
+      install_java_failed=true
+    fi
     apt -y install openjdk-8-jdk
+    if [ $? != 0 ]; then 
+      >&2 echo "error: Java installation failed."
+      install_java_failed=true
+    fi
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     echo "export JAVA_HOME=${JAVA_HOME}" >> /etc/profile
     java -version
     if [ $? != 0 ]; then 
-      echo "error: Java is NOT installed."
-      echo "Install Java manually and then run service daemon: sudo apt -y update; sudo apt -y install openjdk-8-jdk" >&2
-      # Do not exit now to continue with installation, Java can be installed later.
+      >&2 echo "error: Java is NOT installed."
       install_java_failed=true
     fi
 }
@@ -328,5 +335,6 @@ else
 fi
 
 if [ "$install_java_failed" == true ]; then
+  echo "Install Java manually and then run service daemon: sudo apt -y update; sudo apt -y install openjdk-8-jdk" >&2
   exit 10
 fi
