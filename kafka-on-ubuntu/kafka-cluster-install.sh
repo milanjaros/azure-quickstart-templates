@@ -37,7 +37,7 @@ help()
 {
     echo "This script installs Apache Kafka cluster on Ubuntu.
     
-Usage: $0 [-h] [-k kafka-version] [-z zookeeper-version] [-b broker-id] [-i zookeeper-ip] [-c instance-count] [-K kafka-source] [-Z zookeeper-source]
+Usage: $0 [-h] [-k kafka-version] [-z zookeeper-version] [-b broker-id] [-l listeners] [-i zookeeper-ip] [-c instance-count] [-K kafka-source] [-Z zookeeper-source]
 
 Options:
   -k
@@ -50,6 +50,10 @@ Options:
   -b
         broker id - It is required when installing Kafka. Every instance MUST
         have a unique broker ID.
+  -l
+        listeners - Can be used when installing Kafka to set up listener.
+        On some network configurations this should be set to IP address or
+        hostname. 
   -i
         zookeeper private IP address prefix - It is used when installing both
         Kafka and Zookeeper (see instance count).
@@ -73,11 +77,11 @@ Options:
 log()
 {
 	# If you want to enable this logging add a un-comment the line below and add your account key 
-	#curl -X POST -H "content-type:text/plain" --data-binary "$(date) | ${HOSTNAME} | $1" https://logs-01.loggly.com/inputs/[account-key]/tag/kafka-test,${HOSTNAME}
+	#curl -X POST -H "content-type:text/plain" --data-binary "$(date) | $(hostname) | $1" https://logs-01.loggly.com/inputs/[account-key]/tag/kafka-test,${HOSTNAME}
 	echo "$1"
 }
 
-log "Begin execution of kafka script extension on ${HOSTNAME}"
+log "Begin execution of kafka script extension on $(hostname)"
 
 if [ "${UID}" -ne 0 ];
 then
@@ -88,18 +92,18 @@ fi
 
 # TEMP FIX - Re-evaluate and remove when possible
 # This is an interim fix for hostname resolution in current VM
-grep -q "${HOSTNAME}" /etc/hosts
+grep -q "$(hostname)" /etc/hosts
 if [ $? -eq 0 ]; then
-  log "hostname ${HOSTNAME} found in /etc/hosts"
+  log "hostname $(hostname) found in /etc/hosts"
 else
-  log "hostname ${HOSTNAME} NOT found in /etc/hosts"
+  log "hostname $(hostname) NOT found in /etc/hosts"
   # Append it to the hosts file if not there
   echo "127.0.0.1 $(hostname)" >> /etc/hosts
-  log "hostname ${HOSTNAME} added to /etc/hosts"
+  log "hostname $(hostname) added to /etc/hosts"
 fi
 
 #Loop through options passed
-while getopts :k:K:b:z:Z:i:c:h optname; do
+while getopts :k:K:b:l:z:Z:i:c:h optname; do
   log "Option '$optname' set with argument '${OPTARG}'"
   case $optname in
     k)  #kafka version
@@ -110,6 +114,9 @@ while getopts :k:K:b:z:Z:i:c:h optname; do
       ;;
     b)  #broker id
       BROKER_ID=${OPTARG}
+      ;;
+    l)  #kafka listener
+      KAFKA_LISTENER=${OPTARG}
       ;;
     z)  #zookeeper not kafka
       INSTALL_ZOOKEEPER=true
@@ -210,7 +217,7 @@ expand_ip_range_for_server_properties() {
     done
 }
 
-function join { local IFS="$1"; shift; echo "$*"; }
+function join_params { local IFS="$1"; shift; echo "$*"; }
 
 expand_ip_range() {
     IFS='-' read -a HOST_IPS <<< "$1"
@@ -245,7 +252,7 @@ install_zookeeper()
 
 	echo "tickTime=2000" >> $zookeeper_config
 	echo "dataDir=/var/lib/zookeeper" >> $zookeeper_config
-	echo "clientPort=2181" >> $zookeeper_config
+	echo "clientPort=$ZOOKEEPER_PORT" >> $zookeeper_config
 	echo "initLimit=5" >> $zookeeper_config
 	echo "syncLimit=2" >> $zookeeper_config
 	# OLD Test echo "server.1=${ZOOKEEPER_IP_PREFIX}:2888:3888" >> $zookeeper_config
@@ -289,11 +296,12 @@ install_kafka()
 	fi
 	cd $kafka_path
 	
-	sed -r -i "s/(broker.id)=(.*)/\1=${BROKER_ID}/g" config/server.properties 
-	sed -r -i "s/(zookeeper.connect)=(.*)/\1=$(join , $(expand_ip_range "${ZOOKEEPER_IP_PREFIX}-${INSTANCE_COUNT}"))/g" config/server.properties 
-#	cp config/server.properties config/server-1.properties 
-#	sed -r -i "s/(broker.id)=(.*)/\1=1/g" config/server-1.properties 
-#	sed -r -i "s/^(port)=(.*)/\1=9093/g" config/server-1.properties````
+	sed -E -i "s/(broker.id)=(.*)/\1=${BROKER_ID}/g" config/server.properties 
+	sed -E -i "s/(zookeeper.connect)=(.*)/\1=$(join_params , $(expand_ip_range "${ZOOKEEPER_IP_PREFIX}-${INSTANCE_COUNT}"))/g" config/server.properties
+  if [ ! -z "$KAFKA_LISTENER" ]; then
+    sed -E -i "s/^#?(listeners)=(.*)(:[0-9]+)/\1=MAIN:\/\/${KAFKA_LISTENER}\3/g" config/server.properties
+  fi
+
 	chmod u+x $kafka_path/bin/kafka-server-start.sh
 	$kafka_path/bin/kafka-server-start.sh $kafka_path/config/server.properties &
 }
