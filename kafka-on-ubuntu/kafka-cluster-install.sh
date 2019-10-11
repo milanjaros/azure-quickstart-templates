@@ -37,11 +37,12 @@ help()
 {
     echo "This script installs Apache Kafka cluster on Ubuntu.
     
-Usage: $0 [-h] [-k kafka-version] [-z zookeeper-version] [-b broker-id] [-l listeners] [-i zookeeper-ip] [-c instance-count] [-K kafka-source] [-Z zookeeper-source]
+Usage: $0 [-h] [-k [kafka-version]] [-z [zookeeper-version]] [-b broker-id] [-l listeners] [-i zookeeper-ip] [-c instance-count] [-K kafka-source] [-Z zookeeper-source]
 
 Options:
   -k
-        kafka version - Specify Apache Kafka version (like '2.3.0').
+        kafka version - Install specified Apache Kafka version (like '2.3.0').
+        The version parameter is optional.
   -z
         zookeeper version - If Apache Zookeeper version is specified, then it
         will be installed and it also means that Kafka will NOT be installed.
@@ -102,12 +103,25 @@ else
   log "hostname $(hostname) added to /etc/hosts"
 fi
 
+# Get optional argument
+getopts_optional_argument() {
+  eval next_token=\${$OPTIND}
+  if [[ -n $next_token && $next_token != -* ]]; then
+    OPTIND=$((OPTIND + 1))
+    OPTARG=$next_token
+  else
+    OPTARG=""
+  fi
+}
+
 #Loop through options passed
-while getopts :k:K:b:l:z:Z:i:c:h optname; do
+while getopts :kK:b:l:zZ:i:c:h optname; do
   log "Option '$optname' set with argument '${OPTARG}'"
   case $optname in
     k)  #kafka version
-      KAFKA_VERSION=${OPTARG}
+      INSTALL_KAFKA=true
+      getopts_optional_argument $@
+      KAFKA_VERSION=${OPTARG}      
       ;;
     K)  #kafka source url
       KAFKA_SOURCE=${OPTARG}
@@ -120,6 +134,7 @@ while getopts :k:K:b:l:z:Z:i:c:h optname; do
       ;;
     z)  #zookeeper not kafka
       INSTALL_ZOOKEEPER=true
+      getopts_optional_argument $@
       ZOOKEEPER_VERSION=${OPTARG}
       ;;
     Z)  #zookeeper source url
@@ -141,18 +156,17 @@ while getopts :k:K:b:l:z:Z:i:c:h optname; do
       exit 3
       ;;
     :)  #missing argumet
-      if [ ${OPTARG} == "z" ]; then      
-        INSTALL_ZOOKEEPER=true
-      else
-        echo "error: Missing argument for option -$OPTARG" >&2;
-        help 
-        exit 4
-      fi
+      echo "error: Missing argument for option -$OPTARG" >&2;
+      help 
+      exit 4
       ;;
   esac
 done
 
 #Script Parameters
+if [ "$INSTALL_ZOOKEEPER" == true ]; then
+	  INSTALL_KAFKA=false
+fi
 if [ -z "$ZOOKEEPER_VERSION" ]; then
     ZOOKEEPER_VERSION="3.5.5"
 fi
@@ -327,7 +341,8 @@ if [ "$INSTALL_ZOOKEEPER" == true ]; then
 	#Install zookeeper
 	#-----------------------
 	install_zookeeper
-else
+fi
+if [ "$INSTALL_KAFKA" == true ]; then
 	#
 	#Install kafka
 	#-----------------------
