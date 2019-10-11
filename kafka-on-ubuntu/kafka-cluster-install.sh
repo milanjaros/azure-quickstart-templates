@@ -327,6 +327,6 @@ else
 	install_kafka
 fi
 
-if [ "$install_java_failed" == true]; then
+if [ "$install_java_failed" == true ]; then
   exit 10
 fi
